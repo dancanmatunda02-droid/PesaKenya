@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PesaLedger Kenya — Micro-Lending Vetting & Loan Ledger</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Toast Notification Banner (Replaces alert) -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full px-4 sm:px-0 pointer-events-none"></div>
+
+    <!-- Custom Confirmation Modal (Replaces confirm) -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200">
+            <h3 id="modal-title" class="text-lg font-bold text-slate-900 mb-2">Confirm Action</h3>
+            <p id="modal-message" class="text-sm text-slate-600 mb-6">Are you sure you want to proceed?</p>
+            <div class="flex justify-end gap-3">
+                <button id="modal-cancel-btn" class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+                    Cancel
+                </button>
+                <button id="modal-confirm-btn" class="px-4 py-2.5 rounded-xl text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                    Ksh
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white">PesaLedger Kenya</h1>
+                    <p class="text-xs text-slate-400">Rate: Ksh 200 per Ksh 500 (40% Flat Fee)</p>
+                </div>
+            </div>
+
+            <!-- Main Navigation Tabs -->
+            <nav class="flex bg-slate-800 p-1 rounded-xl self-start sm:self-auto w-full sm:w-auto">
+                <button id="tab-btn-tracker" onclick="switchTab('tracker')" class="flex-1 sm:flex-initial px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 bg-emerald-600 text-white shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Loan Tracker</span>
+                </button>
+                <button id="tab-btn-checklist" onclick="switchTab('checklist')" class="flex-1 sm:flex-initial px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 text-slate-300 hover:text-white">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Vetting Checklist</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+        <!-- ========================================================= -->
+        <!-- SECTION 1: ACTIVE LOAN & REPAYMENT TRACKER                -->
+        <!-- ========================================================= -->
+        <section id="section-tracker" class="space-y-6">
+
+            <!-- Top Summary Metrics Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Card 1: Total Principal Lent Out -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Principal Out</span>
+                        <span class="p-2 rounded-lg bg-slate-100 text-slate-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        </span>
+                    </div>
+                    <div id="metric-principal" class="text-2xl font-bold text-slate-900">Ksh 0</div>
+                    <p class="text-xs text-slate-500 mt-1">Currently deployed capital</p>
+                </div>
+
+                <!-- Card 2: Expected Interest Profit -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Expected Interest</span>
+                        <span class="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        </span>
+                    </div>
+                    <div id="metric-interest" class="text-2xl font-bold text-emerald-600">Ksh 0</div>
+                    <p class="text-xs text-slate-500 mt-1">From active & overdue loans</p>
+                </div>
+
+                <!-- Card 3: Total Collected -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-blue-700">Total Collected</span>
+                        <span class="p-2 rounded-lg bg-blue-50 text-blue-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </span>
+                    </div>
+                    <div id="metric-collected" class="text-2xl font-bold text-slate-900">Ksh 0</div>
+                    <p class="text-xs text-slate-500 mt-1">Principal + profit recovered</p>
+                </div>
+
+                <!-- Card 4: Overdue Balance -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-rose-700">Overdue Balance</span>
+                        <span class="p-2 rounded-lg bg-rose-50 text-rose-600">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </span>
+                    </div>
+                    <div id="metric-overdue" class="text-2xl font-bold text-rose-600">Ksh 0</div>
+                    <p class="text-xs text-slate-500 mt-1">Past due date (total due)</p>
+                </div>
+            </div>
+
+            <!-- Add New Loan Form Card -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900">Disburse New Loan</h2>
+                        <p class="text-xs text-slate-500">Auto-calculates Ksh 200 fee per Ksh 500 lent (40%)</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="vetting-badge-hint" class="text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800">
+                            Checklist: 0% Complete
+                        </span>
+                        <button type="button" onclick="switchTab('checklist')" class="text-xs font-semibold px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition">
+                            Open Checklist
+                        </button>
+                    </div>
+                </div>
+
+                <form id="add-loan-form" class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                    <!-- Borrower Name -->
+                    <div class="lg:col-span-1">
+                        <label for="borrower-name" class="block text-xs font-semibold text-slate-700 mb-1">Borrower Name *</label>
+                        <input type="text" id="borrower-name" required placeholder="e.g. Brian Otieno"
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div class="lg:col-span-1">
+                        <label for="borrower-phone" class="block text-xs font-semibold text-slate-700 mb-1">M-Pesa Phone *</label>
+                        <input type="tel" id="borrower-phone" required placeholder="0712 345 678"
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+
+                    <!-- Principal Lent -->
+                    <div class="lg:col-span-1">
+                        <label for="loan-principal" class="block text-xs font-semibold text-slate-700 mb-1">Principal (Ksh) *</label>
+                        <input type="number" id="loan-principal" required min="500" step="500" value="1000"
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+
+                    <!-- Interest Fee (Editable, auto-calculated) -->
+                    <div class="lg:col-span-1">
+                        <label for="loan-interest" class="block text-xs font-semibold text-slate-700 mb-1">Interest Fee (40%)</label>
+                        <input type="number" id="loan-interest" required min="0" step="50" value="400"
+                            class="w-full rounded-xl border border-slate-300 bg-emerald-50/40 px-3 py-2.5 text-sm font-semibold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+
+                    <!-- Due Date -->
+                    <div class="lg:col-span-1">
+                        <label for="loan-due-date" class="block text-xs font-semibold text-slate-700 mb-1">Due Date *</label>
+                        <input type="date" id="loan-due-date" required
+                            class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    </div>
+
+                    <!-- Vetting Verified Toggle & Submit -->
+                    <div class="lg:col-span-1 flex flex-col gap-2">
+                        <label class="inline-flex items-center gap-2 cursor-pointer select-none">
+                            <input type="checkbox" id="loan-vetted" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                            <span class="text-xs font-medium text-slate-700">KYC Vetting Verified</span>
+                        </label>
+                        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm py-2.5 px-4 rounded-xl shadow-sm transition flex items-center justify-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            <span>Add Loan</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Loan Ledger Controls & Filters -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="setFilter('all')" id="filter-all" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white transition">All Loans</button>
+                    <button onclick="setFilter('Active')" id="filter-Active" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Active</button>
+                    <button onclick="setFilter('Overdue')" id="filter-Overdue" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Overdue</button>
+                    <button onclick="setFilter('Paid')" id="filter-Paid" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition">Paid</button>
+                </div>
+
+                <button id="clear-samples-btn" onclick="confirmClearSamples()" class="text-xs font-medium text-slate-500 hover:text-rose-600 underline self-start sm:self-auto transition">
+                    Clear Sample Data
+                </button>
+            </div>
+
+            <!-- Responsive Loan Table (Desktop) & Cards (Mobile) -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <!-- Desktop Table -->
+                <div class="hidden md:block overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                <th class="py-3.5 px-5">Borrower</th>
+                                <th class="py-3.5 px-4">Principal</th>
+                                <th class="py-3.5 px-4">Interest (40%)</th>
+                                <th class="py-3.5 px-4">Total Due</th>
+                                <th class="py-3.5 px-4">Due Date</th>
+                                <th class="py-3.5 px-4">Status</th>
+                                <th class="py-3.5 px-5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loans-table-body" class="divide-y divide-slate-100 text-sm">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card List -->
+                <div id="loans-mobile-list" class="md:hidden divide-y divide-slate-100">
+                    <!-- Populated via JS -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="loans-empty-state" class="hidden py-12 px-4 text-center">
+                    <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <h3 class="text-sm font-bold text-slate-900">No loans found</h3>
+                    <p class="text-xs text-slate-500 mt-1">Add a new borrower loan using the form above or change your filter.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- SECTION 2: BORROWER VETTING & ONBOARDING CHECKLIST        -->
+        <!-- ========================================================= -->
+        <section id="section-checklist" class="hidden space-y-6">
+
+            <!-- Progress Overview Banner -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <span class="inline-block text-xs font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg mb-1.5">Risk Protection Protocol</span>
+                        <h2 class="text-xl font-bold text-slate-900">Borrower Vetting & Onboarding Checklist</h2>
+                        <p class="text-sm text-slate-600">Complete all verification steps before releasing M-Pesa funds to minimize default risk.</p>
+                    </div>
+                    <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <button onclick="switchTab('tracker')" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 transition">
+                            &larr; Back to Tracker
+                        </button>
+                        <button onclick="confirmResetChecklist()" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+                            Reset Checklist
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs font-semibold">
+                        <span id="checklist-count-label" class="text-slate-600">0 of 10 steps completed</span>
+                        <span id="checklist-percent-label" class="text-emerald-600">0%</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div id="checklist-progress-bar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checklist Phases Container -->
+            <div id="checklist-phases-container" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <!-- Quick Action Bridge to Loan Form -->
+            <div class="bg-slate-900 text-white rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-base font-bold">Ready to disburse funds?</h3>
+                    <p class="text-xs text-slate-300 mt-0.5">Once vetting is complete, record the principal and due date in your active loan ledger.</p>
+                </div>
+                <button onclick="proceedToDisburse()" class="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-semibold transition shrink-0">
+                    Record Loan in Tracker &rarr;
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 px-4 text-center text-xs text-slate-500">
+        Data is saved automatically in your browser's local storage. Always issue written agreements and verify M-Pesa registration names before disbursing.
+    </footer>
+
+    <script>
+        // =========================================================================
+        // STATE & CONFIGURATION
+        // =========================================================================
+        const STORAGE_KEYS = {
+            LOANS: 'pesaledger_loans_v1',
+            CHECKLIST: 'pesaledger_checklist_v1'
+        };
+
+        // 3-Phase Vetting Checklist Definition
+        const CHECKLIST_PHASES = [
+            {
+                id: 'phase1',
+                badge: 'Phase 1',
+                title: 'Identity & KYC Verification',
+                subtitle: 'Confirm who the borrower is and where they can be found.',
+                items: [
+                    {
+                        id: 'kyc_id',
+                        title: 'National ID / Passport Photos (Front & Back)',
+                        desc: 'Capture clear, uncropped photos of original Kenyan National ID or valid Passport.'
+                    },
+                    {
+                        id: 'kyc_selfie',
+                        title: 'Live Selfie Holding National ID',
+                        desc: 'Verify face matches ID photo and ensure the document is physically in their possession.'
+                    },
+                    {
+                        id: 'kyc_mpesa',
+                        title: 'Verified Safaricom / Airtel M-Pesa Number',
+                        desc: 'Confirm the phone number is registered under the exact same name on the National ID.'
+                    },
+                    {
+                        id: 'kyc_location',
+                        title: 'Physical Residence / Workplace Pin & Landmark',
+                        desc: 'Record estate/stage name, building/shop number, and WhatsApp live location pin.'
+                    }
+                ]
+            },
+            {
+                id: 'phase2',
+                badge: 'Phase 2',
+                title: 'Affordability & Risk Assessment',
+                subtitle: 'Evaluate repayment capacity before committing capital.',
+                items: [
+                    {
+                        id: 'risk_statement',
+                        title: '6-Month M-Pesa Statement Review',
+                        desc: 'Check for consistent income inflows and existing Fuliza, M-Shwari, Tala, or Branch debt load.'
+                    },
+                    {
+                        id: 'risk_cap',
+                        title: 'First-Loan Cap Check (Ksh 500 – 2,000)',
+                        desc: 'Keep initial exposure small to test repayment discipline before scaling credit limits.'
+                    },
+                    {
+                        id: 'risk_guarantors',
+                        title: 'Two Reachable Guarantors / Referees',
+                        desc: 'Call or verify two close contacts (e.g., spouse, colleague, or neighbor) with active numbers.'
+                    }
+                ]
+            },
+            {
+                id: 'phase3',
+                badge: 'Phase 3',
+                title: 'Agreement & Security',
+                subtitle: 'Lock in clear terms and create an enforceable paper trail.',
+                items: [
+                    {
+                        id: 'sec_iou',
+                        title: 'Signed Written Loan Agreement / IOU',
+                        desc: 'Clearly state principal, Ksh 200 per Ksh 500 fee (40%), exact due date, and late terms.'
+                    },
+                    {
+                        id: 'sec_collateral',
+                        title: 'Collateral / Security Hold (For Larger Loans)',
+                        desc: 'Hold verifiable chattel/item or guarantor undertaking if lending above your micro-cap.'
+                    },
+                    {
+                        id: 'sec_disburse',
+                        title: 'M-Pesa Disbursement with Clear Reference',
+                        desc: 'Send directly to borrower’s registered M-Pesa line and save the M-Pesa confirmation code.'
+                    }
+                ]
+            }
+        ];
+
+        // Sample Realistic Kenyan Borrower Records
+        function getDefaultSampleLoans() {
+            const today = new Date();
+            const formatOffsetDate = (daysOffset) => {
+                const d = new Date(today);
+                d.setDate(d.getDate() + daysOffset);
+                return d.toISOString().split('T')[0];
+            };
+
+            return [
+                {
+                    id: 'sample-1',
+                    name: 'Faith Wanjiku',
+                    phone: '0712 489 302',
+                    principal: 1500,
+                    interest: 600,
+                    dueDate: formatOffsetDate(-5),
+                    status: 'Paid',
+                    vetted: true,
+                    isSample: true
+                },
+                {
+                    id: 'sample-2',
+                    name: 'Kevin Omondi',
+                    phone: '0724 910 554',
+                    principal: 2000,
+                    interest: 800,
+                    dueDate: formatOffsetDate(7),
+                    status: 'Active',
+                    vetted: true,
+                    isSample: true
+                },
+                {
+                    id: 'sample-3',
+                    name: 'Mercy Chebet',
+                    phone: '0798 331 719',
+                    principal: 1000,
+                    interest: 400,
+                    dueDate: formatOffsetDate(-3),
+                    status: 'Overdue',
+                    vetted: false,
+                    isSample: true
+                }
+            ];
+        }
+
+        let loans = [];
+        let checkedItems = {};
+        let currentFilter = 'all';
+
+        // =========================================================================
+        // INITIALIZATION & STORAGE
+        // =========================================================================
+        function initApp() {
+            try {
+                const savedChecklist = localStorage.getItem(STORAGE_KEYS.CHECKLIST);
+                checkedItems = savedChecklist ? JSON.parse(savedChecklist) : {};
+            } catch (e) {
+                checkedItems = {};
+            }
+
+            try {
+                const savedLoans = localStorage.getItem(STORAGE_KEYS.LOANS);
+                if (savedLoans) {
+                    loans = JSON.parse(savedLoans);
+                } else {
+                    loans = getDefaultSampleLoans();
+                    saveLoans();
+                }
+            } catch (e) {
+                loans = getDefaultSampleLoans();
+            }
+
+            refreshOverdueStatuses();
+
+            const defaultDue = new Date();
+            defaultDue.setDate(defaultDue.getDate() + 14);
+            document.getElementById('loan-due-date').value = defaultDue.toISOString().split('T')[0];
+
+            setupEventListeners();
+            renderChecklist();
+            renderLoans();
+        }
+
+        function saveLoans() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.LOANS, JSON.stringify(loans));
+            } catch (e) {
+                showToast('Could not save data to browser storage.', 'error');
+            }
+        }
+
+        function saveChecklist() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(checkedItems));
+            } catch (e) {
+                showToast('Could not save checklist state.', 'error');
+            }
+        }
+
+        function refreshOverdueStatuses() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            let changed = false;
+            loans.forEach(loan => {
+                if (loan.status === 'Active' && loan.dueDate < todayStr) {
+                    loan.status = 'Overdue';
+                    changed = true;
+                }
+            });
+            if (changed) saveLoans();
+        }
+
+        // =========================================================================
+        // FORMATTING HELPERS
+        // =========================================================================
+        function formatKsh(amount) {
+            return 'Ksh ' + Number(amount || 0).toLocaleString('en-KE');
+        }
+
+        function formatDateDisplay(dateStr) {
+            if (!dateStr) return '—';
+            const dateObj = new Date(dateStr + 'T00:00:00');
+            return dateObj.toLocaleDateString('en-KE', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        // =========================================================================
+        // TAB NAVIGATION
+        // =========================================================================
+        function switchTab(tabName) {
+            const trackerSec = document.getElementById('section-tracker');
+            const checklistSec = document.getElementById('section-checklist');
+            const btnTracker = document.getElementById('tab-btn-tracker');
+            const btnChecklist = document.getElementById('tab-btn-checklist');
+
+            if (tabName === 'tracker') {
+                trackerSec.classList.remove('hidden');
+                checklistSec.classList.add('hidden');
+
+                btnTracker.classList.add('bg-emerald-600', 'text-white', 'shadow-sm');
+                btnTracker.classList.remove('text-slate-300', 'hover:text-white');
+
+                btnChecklist.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
+                btnChecklist.classList.add('text-slate-300', 'hover:text-white');
+            } else {
+                checklistSec.classList.remove('hidden');
+                trackerSec.classList.add('hidden');
+
+                btnChecklist.classList.add('bg-emerald-600', 'text-white', 'shadow-sm');
+                btnChecklist.classList.remove('text-slate-300', 'hover:text-white');
+
+                btnTracker.classList.remove('bg-emerald-600', 'text-white', 'shadow-sm');
+                btnTracker.classList.add('text-slate-300', 'hover:text-white');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // =========================================================================
+        // CHECKLIST LOGIC & RENDERING
+        // =========================================================================
+        function renderChecklist() {
+            const container = document.getElementById('checklist-phases-container');
+            container.innerHTML = '';
+
+            let totalSteps = 0;
+            let completedSteps = 0;
+
+            CHECKLIST_PHASES.forEach(phase => {
+                const phaseCard = document.createElement('div');
+                phaseCard.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden';
+
+                let itemsHtml = '';
+                phase.items.forEach(item => {
+                    totalSteps++;
+                    const isChecked = !!checkedItems[item.id];
+                    if (isChecked) completedSteps++;
+
+                    itemsHtml += `
+                        <label for="chk-${item.id}" class="flex items-start gap-3 p-4 cursor-pointer hover:bg-slate-50 transition border-b border-slate-100 last:border-b-0 select-none">
+                            <input type="checkbox" id="chk-${item.id}" ${isChecked ? 'checked' : ''}
+                                onchange="toggleChecklistItem('${item.id}')"
+                                class="mt-1 w-5 h-5 rounded-md text-emerald-600 focus:ring-emerald-500 border-slate-300 shrink-0 cursor-pointer">
+                            <div class="flex-1">
+                                <div class="text-sm font-semibold ${isChecked ? 'line-through text-slate-400' : 'text-slate-800'} transition">
+                                    ${item.title}
+                                </div>
+                                <p class="text-xs ${isChecked ? 'text-slate-400' : 'text-slate-500'} mt-1 leading-relaxed">
+                                    ${item.desc}
+                                </p>
+                            </div>
+                        </label>
+                    `;
+                });
+
+                phaseCard.innerHTML = `
+                    <div class="p-5 bg-slate-50 border-b border-slate-200">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-700">${phase.badge}</span>
+                        <h3 class="text-base font-bold text-slate-900 mt-0.5">${phase.title}</h3>
+                        <p class="text-xs text-slate-500 mt-1">${phase.subtitle}</p>
+                    </div>
+                    <div class="divide-y divide-slate-100 flex-1">
+                        ${itemsHtml}
+                    </div>
+                `;
+
+                container.appendChild(phaseCard);
+            });
+
+            const pct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+            document.getElementById('checklist-count-label').textContent = `${completedSteps} of ${totalSteps} steps completed`;
+            document.getElementById('checklist-percent-label').textContent = `${pct}%`;
+            document.getElementById('checklist-progress-bar').style.width = `${pct}%`;
+
+            const hintBadge = document.getElementById('vetting-badge-hint');
+            hintBadge.textContent = `Checklist: ${pct}% Complete`;
+            if (pct === 100) {
+                hintBadge.className = 'text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800';
+                document.getElementById('loan-vetted').checked = true;
+            } else {
+                hintBadge.className = 'text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-800';
+            }
+        }
+
+        function toggleChecklistItem(itemId) {
+            checkedItems[itemId] = !checkedItems[itemId];
+            saveChecklist();
+            renderChecklist();
+        }
+
+        function confirmResetChecklist() {
+            openConfirmModal(
+                'Reset Vetting Checklist?',
+                'This will uncheck all 10 verification steps so you can screen a new borrower.',
+                () => {
+                    checkedItems = {};
+                    saveChecklist();
+                    renderChecklist();
+                    document.getElementById('loan-vetted').checked = false;
+                    showToast('Checklist reset for next borrower.', 'info');
+                }
+            );
+        }
+
+        function proceedToDisburse() {
+            const totalItems = CHECKLIST_PHASES.reduce((acc, p) => acc + p.items.length, 0);
+            const doneCount = Object.values(checkedItems).filter(Boolean).length;
+            if (doneCount === totalItems) {
+                document.getElementById('loan-vetted').checked = true;
+            }
+            switchTab('tracker');
+            document.getElementById('borrower-name').focus();
+        }
+
+        // =========================================================================
+        // LOAN TRACKER LOGIC & RENDERING
+        // =========================================================================
+        function setupEventListeners() {
+            const principalInput = document.getElementById('loan-principal');
+            const interestInput = document.getElementById('loan-interest');
+
+            principalInput.addEventListener('input', () => {
+                const principalVal = parseFloat(principalInput.value) || 0;
+                const calculatedInterest = Math.round((principalVal / 500) * 200);
+                interestInput.value = calculatedInterest;
+            });
+
+            document.getElementById('add-loan-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const name = document.getElementById('borrower-name').value.trim();
+                const phone = document.getElementById('borrower-phone').value.trim();
+                const principal = parseFloat(document.getElementById('loan-principal').value) || 0;
+                const interest = parseFloat(document.getElementById('loan-interest').value) || 0;
+                const dueDate = document.getElementById('loan-due-date').value;
+                const vetted = document.getElementById('loan-vetted').checked;
+
+                if (!name || !phone || principal <= 0 || !dueDate) {
+                    showToast('Please fill in all required loan fields.', 'error');
+                    return;
+                }
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                const initialStatus = dueDate < todayStr ? 'Overdue' : 'Active';
+
+                const newLoan = {
+                    id: 'loan-' + Date.now(),
+                    name,
+                    phone,
+                    principal,
+                    interest,
+                    dueDate,
+                    status: initialStatus,
+                    vetted,
+                    isSample: false
+                };
+
+                loans.unshift(newLoan);
+                saveLoans();
+                renderLoans();
+
+                document.getElementById('borrower-name').value = '';
+                document.getElementById('borrower-phone').value = '';
+                document.getElementById('loan-principal').value = 1000;
+                document.getElementById('loan-interest').value = 400;
+
+                showToast(`Loan of ${formatKsh(principal)} recorded for ${name}.`, 'success');
+            });
+        }
+
+        function setFilter(status) {
+            currentFilter = status;
+            ['all', 'Active', 'Overdue', 'Paid'].forEach(key => {
+                const btn = document.getElementById(`filter-${key}`);
+                if (key === status) {
+                    btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white transition';
+                } else {
+                    btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white text-slate-600 border border-slate-200 hover:bg-slate-100 transition';
+                }
+            });
+            renderLoans();
+        }
+
+        function renderLoans() {
+            let activePrincipalOut = 0;
+            let expectedInterest = 0;
+            let totalCollected = 0;
+            let overdueBalance = 0;
+
+            loans.forEach(loan => {
+                const totalDue = loan.principal + loan.interest;
+                if (loan.status === 'Paid') {
+                    totalCollected += totalDue;
+                } else {
+                    activePrincipalOut += loan.principal;
+                    expectedInterest += loan.interest;
+                    if (loan.status === 'Overdue') {
+                        overdueBalance += totalDue;
+                    }
+                }
+            });
+
+            document.getElementById('metric-principal').textContent = formatKsh(activePrincipalOut);
+            document.getElementById('metric-interest').textContent = formatKsh(expectedInterest);
+            document.getElementById('metric-collected').textContent = formatKsh(totalCollected);
+            document.getElementById('metric-overdue').textContent = formatKsh(overdueBalance);
+
+            const hasSamples = loans.some(l => l.isSample);
+            const clearSampleBtn = document.getElementById('clear-samples-btn');
+            if (hasSamples) {
+                clearSampleBtn.classList.remove('hidden');
+            } else {
+                clearSampleBtn.classList.add('hidden');
+            }
+
+            const filteredLoans = currentFilter === 'all'
+                ? loans
+                : loans.filter(l => l.status === currentFilter);
+
+            const tbody = document.getElementById('loans-table-body');
+            const mobileList = document.getElementById('loans-mobile-list');
+            const emptyState = document.getElementById('loans-empty-state');
+
+            tbody.innerHTML = '';
+            mobileList.innerHTML = '';
+
+            if (filteredLoans.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            filteredLoans.forEach(loan => {
+                const totalDue = loan.principal + loan.interest;
+                const badgeHtml = getStatusBadgeHtml(loan.status);
+                const vettedTag = loan.vetted
+                    ? `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">✓ Vetted</span>`
+                    : `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">Unverified</span>`;
+
+                const sampleTag = loan.isSample
+                    ? `<span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Sample</span>`
+                    : '';
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/80 transition';
+                tr.innerHTML = `
+                    <td class="py-4 px-5">
+                        <div class="font-semibold text-slate-900 flex items-center gap-2">
+                            <span>${escapeHtml(loan.name)}</span>
+                            ${sampleTag}
+                        </div>
+                        <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                            <span>${escapeHtml(loan.phone)}</span>
+                            ${vettedTag}
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 font-medium text-slate-700">${formatKsh(loan.principal)}</td>
+                    <td class="py-4 px-4 font-medium text-emerald-600">+${formatKsh(loan.interest)}</td>
+                    <td class="py-4 px-4 font-bold text-slate-900">${formatKsh(totalDue)}</td>
+                    <td class="py-4 px-4 text-xs font-medium text-slate-600">${formatDateDisplay(loan.dueDate)}</td>
+                    <td class="py-4 px-4">${badgeHtml}</td>
+                    <td class="py-4 px-5 text-right">
+                        <div class="inline-flex items-center justify-end gap-1.5">
+                            ${loan.status !== 'Paid' ? `
+                                <button onclick="markLoanPaid('${loan.id}')" title="Mark Paid"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">
+                                    Mark Paid
+                                </button>
+                                <button onclick="copyReminderMessage('${loan.id}')" title="Copy SMS/WhatsApp Reminder"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+                                    Copy Reminder
+                                </button>
+                            ` : `
+                                <button onclick="reopenLoan('${loan.id}')" title="Undo Paid"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 transition">
+                                    Undo
+                                </button>
+                            `}
+                            <button onclick="confirmDeleteLoan('${loan.id}')" title="Delete Record"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+
+                const card = document.createElement('div');
+                card.className = 'p-4 space-y-3';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="font-bold text-slate-900 flex items-center gap-2">
+                                <span>${escapeHtml(loan.name)}</span>
+                                ${sampleTag}
+                            </div>
+                            <div class="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
+                                <span>${escapeHtml(loan.phone)}</span>
+                                ${vettedTag}
+                            </div>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl text-xs">
+                        <div>
+                            <span class="text-slate-400 block">Principal</span>
+                            <span class="font-semibold text-slate-700">${formatKsh(loan.principal)}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block">Fee (40%)</span>
+                            <span class="font-semibold text-emerald-600">+${formatKsh(loan.interest)}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 block">Total Due</span>
+                            <span class="font-bold text-slate-900">${formatKsh(totalDue)}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                        <span class="text-xs text-slate-500">Due: <strong class="text-slate-700">${formatDateDisplay(loan.dueDate)}</strong></span>
+                        <div class="flex items-center gap-2">
+                            ${loan.status !== 'Paid' ? `
+                                <button onclick="copyReminderMessage('${loan.id}')"
+                                    class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+                                    Copy Reminder
+                                </button>
+                                <button onclick="markLoanPaid('${loan.id}')"
+                                    class="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition">
+                                    Mark Paid
+                                </button>
+                            ` : `
+                                <button onclick="reopenLoan('${loan.id}')"
+                                    class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-100 text-slate-600 transition">
+                                    Undo Paid
+                                </button>
+                            `}
+                            <button onclick="confirmDeleteLoan('${loan.id}')" aria-label="Delete"
+                                class="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                mobileList.appendChild(card);
+            });
+        }
+
+        function getStatusBadgeHtml(status) {
+            if (status === 'Paid') {
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Paid</span>`;
+            }
+            if (status === 'Overdue') {
+                return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">Overdue</span>`;
+            }
+            return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>`;
+        }
+
+        function markLoanPaid(id) {
+            const loan = loans.find(l => l.id === id);
+            if (!loan) return;
+            loan.status = 'Paid';
+            saveLoans();
+            renderLoans();
+            showToast(`Marked ${loan.name}'s loan (${formatKsh(loan.principal + loan.interest)}) as Paid.`, 'success');
+        }
+
+        function reopenLoan(id) {
+            const loan = loans.find(l => l.id === id);
+            if (!loan) return;
+            const todayStr = new Date().toISOString().split('T')[0];
+            loan.status = loan.dueDate < todayStr ? 'Overdue' : 'Active';
+            saveLoans();
+            renderLoans();
+            showToast(`Reopened ${loan.name}'s loan.`, 'info');
+        }
+
+        function confirmDeleteLoan(id) {
+            const loan = loans.find(l => l.id === id);
+            if (!loan) return;
+            openConfirmModal(
+                'Delete Loan Record?',
+                `Are you sure you want to permanently remove ${loan.name}'s loan record?`,
+                () => {
+                    loans = loans.filter(l => l.id !== id);
+                    saveLoans();
+                    renderLoans();
+                    showToast('Loan record deleted.', 'info');
+                }
+            );
+        }
+
+        function confirmClearSamples() {
+            openConfirmModal(
+                'Clear Sample Entries?',
+                'This will remove the pre-loaded sample borrowers while keeping any real loans you added.',
+                () => {
+                    loans = loans.filter(l => !l.isSample);
+                    saveLoans();
+                    renderLoans();
+                    showToast('Sample entries cleared.', 'info');
+                }
+            );
+        }
+
+        // =========================================================================
+        // CLIPBOARD SMS / WHATSAPP REMINDER GENERATOR
+        // =========================================================================
+        function copyReminderMessage(id) {
+            const loan = loans.find(l => l.id === id);
+            if (!loan) return;
+
+            const totalDue = loan.principal + loan.interest;
+            const formattedDate = formatDateDisplay(loan.dueDate);
+            const firstName = loan.name.split(' ')[0];
+
+            const message = loan.status === 'Overdue'
+                ? `Hi ${firstName}, friendly reminder that your loan repayment of ${formatKsh(totalDue)} (Principal ${formatKsh(loan.principal)} + Fee ${formatKsh(loan.interest)}) was due on ${formattedDate} and is now overdue. Kindly send via M-Pesa today to keep your credit limit active. Thank you!`
+                : `Hi ${firstName}, quick reminder that your loan repayment of ${formatKsh(totalDue)} (Principal ${formatKsh(loan.principal)} + Fee ${formatKsh(loan.interest)}) is due on ${formattedDate}. Please send via M-Pesa on or before the due date. Thank you!`;
+
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = message;
+            tempTextArea.style.position = 'fixed';
+            tempTextArea.style.left = '-9999px';
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast(`Reminder copied for ${loan.name}! Paste into WhatsApp or SMS.`, 'success');
+            } catch (err) {
+                showToast('Unable to copy reminder automatically.', 'error');
+            } finally {
+                document.body.removeChild(tempTextArea);
+            }
+        }
+
+        // =========================================================================
+        // UI HELPERS (CUSTOM TOASTS & MODAL)
+        // =========================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+
+            let bgClass = 'bg-slate-900 text-white';
+            if (type === 'success') bgClass = 'bg-emerald-700 text-white';
+            if (type === 'error') bgClass = 'bg-rose-700 text-white';
+
+            toast.className = `${bgClass} px-4 py-3 rounded-xl shadow-lg text-xs font-medium flex items-center justify-between gap-3 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `
+                <span>${escapeHtml(message)}</span>
+                <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white font-bold">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        let pendingConfirmCallback = null;
+
+        function openConfirmModal(title, message, onConfirm) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            pendingConfirmCallback = onConfirm;
+
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirm-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            pendingConfirmCallback = null;
+        }
+
+        document.getElementById('modal-cancel-btn').addEventListener('click', closeConfirmModal);
+        document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+            if (typeof pendingConfirmCallback === 'function') {
+                pendingConfirmCallback();
+            }
+            closeConfirmModal();
+        });
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
